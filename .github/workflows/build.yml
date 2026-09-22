@@ -66,6 +66,14 @@ jobs:
         with:
           go-version: '1.22'
 
+      - name: 下载 Chart.js 打入包内（不依赖 CDN）
+        run: |
+          curl -fsSL --retry 3 -o web/static/js/chart.umd.min.js \
+            https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js \
+          || curl -fsSL --retry 3 -o web/static/js/chart.umd.min.js \
+            https://unpkg.com/chart.js@4/dist/chart.umd.min.js
+          ls -lh web/static/js/chart.umd.min.js
+
       - name: 构建
         env:
           GOOS: ${{ matrix.goos }}
