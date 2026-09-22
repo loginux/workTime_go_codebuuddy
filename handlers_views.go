@@ -107,7 +107,7 @@ func handleDayView(w http.ResponseWriter, r *http.Request) {
 	page := dayPageData{
 		Base:        baseData(r, "day"),
 		ViewDate:    viewDate.Format("2006-01-02"),
-		WeekdayCN:   "日一二三四五六"[int(viewDate.Weekday()) : int(viewDate.Weekday())+1],
+		WeekdayCN:   string([]rune("日一二三四五六")[int(viewDate.Weekday())]),
 		PrevDate:    viewDate.AddDate(0, 0, -1).Format("2006-01-02"),
 		NextDate:    viewDate.AddDate(0, 0, 1).Format("2006-01-02"),
 		Entries:     entries,

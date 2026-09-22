@@ -129,6 +129,10 @@ func handleProjectDelete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defaultProj := getDefaultProject(uid)
+	if defaultProj == nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "系统错误：找不到默认项目"})
+		return
+	}
 	defaultTask := getDefaultTask(defaultProj.ID)
 	if defaultTask == nil {
 		defaultTask = getDefaultTaskGlobal(uid)

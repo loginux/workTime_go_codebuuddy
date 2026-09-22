@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -19,7 +20,7 @@ var staticFS embed.FS
 var funcMap = template.FuncMap{
 	"fmtMin": formatMinutes,
 	"weekdayCN": func(d time.Time) string {
-		return "日一二三四五六"[int(d.Weekday()) : int(d.Weekday())+1]
+		return string([]rune("日一二三四五六")[int(d.Weekday())])
 	},
 	"weekdayIndex": func(d time.Time) int {
 		return int(d.Weekday())
@@ -70,17 +71,26 @@ func baseData(r *http.Request, nav string) Base {
 	return b
 }
 
-var templateCache = map[string]*template.Template{}
+var (
+	templateCacheMu sync.RWMutex
+	templateCache   = map[string]*template.Template{}
+)
 
-// render 渲染页面（base.html + 指定页面模板，启动时缓存）
+// render 渲染页面（base.html + 指定页面模板，带并发保护的缓存）
 func render(w http.ResponseWriter, page string, data any) {
-	t, ok := templateCache[page]
-	if !ok {
+	t := func() *template.Template {
+		templateCacheMu.RLock()
+		defer templateCacheMu.RUnlock()
+		return templateCache[page]
+	}()
+	if t == nil {
 		t = template.Must(
 			template.New("base.html").Funcs(funcMap).
 				ParseFS(templateFS, "web/templates/base.html", "web/templates/"+page),
 		)
+		templateCacheMu.Lock()
 		templateCache[page] = t
+		templateCacheMu.Unlock()
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := t.ExecuteTemplate(w, "base.html", data); err != nil {

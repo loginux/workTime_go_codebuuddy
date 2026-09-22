@@ -57,8 +57,11 @@ func cleanupBackups() {
 		}
 	}
 	sort.Slice(files, func(i, j int) bool {
-		ai, _ := os.Stat(files[i])
-		aj, _ := os.Stat(files[j])
+		ai, err1 := os.Stat(files[i])
+		aj, err2 := os.Stat(files[j])
+		if err1 != nil || err2 != nil {
+			return false
+		}
 		return ai.ModTime().After(aj.ModTime())
 	})
 	for _, old := range files[maxBackups:] {

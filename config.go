@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // getDataDir 返回数据存储目录（数据库、备份、会话密钥）。
@@ -16,8 +17,8 @@ func getDataDir() string {
 		wd, _ := os.Getwd()
 		return wd
 	}
-	if filepath.Base(filepath.Dir(exe)) == "tmp" || filepath.Base(exe) == "go-build" {
-		// go run 开发模式
+	if strings.Contains(exe, "go-build") {
+		// go run 开发模式：临时目录，改用工作目录
 		wd, _ := os.Getwd()
 		return wd
 	}

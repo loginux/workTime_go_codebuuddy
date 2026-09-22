@@ -44,6 +44,7 @@ jobs:
           GOARM: ${{ matrix.goarm }}
           CGO_ENABLED: 0
         run: |
+          go mod tidy
           OUTPUT="workTime${{ matrix.ext }}"
           go build -trimpath -ldflags "-s -w" -o "dist/${OUTPUT}" .
           echo "--- 构建完成 ---"

@@ -121,6 +121,7 @@ worktime_go/
 
 ```bash
 cd worktime_go
+go mod tidy          # 首次运行生成 go.sum
 go run . --port 5000
 # 访问 http://127.0.0.1:5000
 
@@ -131,6 +132,7 @@ go run . --host 0.0.0.0 --port 8080
 ### 编译
 
 ```bash
+go mod tidy
 go build -trimpath -ldflags "-s -w" -o workTime.exe .
 ```
 

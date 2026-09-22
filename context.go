@@ -41,7 +41,11 @@ func requireCSRF(w http.ResponseWriter, r *http.Request) bool {
 			writeJSON(w, http.StatusForbidden, map[string]any{"error": "CSRF 校验失败，请刷新页面重试"})
 		} else {
 			s.Flash("error", "CSRF 校验失败，请刷新页面重试")
-			http.Redirect(w, r, r.Header.Get("Referer"), http.StatusFound)
+			back := r.Header.Get("Referer")
+			if back == "" {
+				back = "/"
+			}
+			http.Redirect(w, r, back, http.StatusFound)
 		}
 		return false
 	}
