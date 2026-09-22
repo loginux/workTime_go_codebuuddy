@@ -16,7 +16,8 @@ var AppVersion = readVersion()
 var versionFile string
 
 func readVersion() string {
-	return strings.TrimSpace(versionFile)
+	// CI 写入的是完整 tag（如 v1.6），统一去掉 v 前缀，展示处统一补 v
+	return strings.TrimPrefix(strings.TrimSpace(versionFile), "v")
 }
 
 // getDataDir 返回数据存储目录（数据库、备份、会话密钥）。
