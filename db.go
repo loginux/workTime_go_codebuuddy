@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -61,26 +60,6 @@ CREATE TABLE IF NOT EXISTS time_entries (
 func initDB(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
-	}
-	// 兼容旧版数据：worktime.db 不存在时，查找旧版误拼文件名 woktime.db 并自动复制沿用
-	// （旧版 Python 项目把 worktime 误拼为 woktime，此处按磁盘上的旧文件名字面匹配）
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		old := filepath.Join(filepath.Dir(path), "woktime.db")
-		if _, err2 := os.Stat(old); err2 == nil {
-			if src, err3 := os.Open(old); err3 == nil {
-				dst, err4 := os.Create(path)
-				if err4 == nil {
-					_, err5 := io.Copy(dst, src)
-					src.Close()
-					dst.Close()
-					if err5 == nil {
-						log.Printf("已自动沿用旧版数据库: %s -> %s", old, path)
-					}
-				} else {
-					src.Close()
-				}
-			}
-		}
 	}
 	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", filepath.ToSlash(path))
 	conn, err := sql.Open("sqlite", dsn)

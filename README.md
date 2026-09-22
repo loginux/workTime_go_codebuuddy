@@ -213,7 +213,7 @@ chmod +x /root/workTime
 | 运行方式 | 需要 Python 环境 / PyInstaller 打包 | 单二进制，零依赖 |
 | 打包产物 | ~15MB (PyInstaller) | ~8MB (Go 静态编译) |
 | 交叉编译 | 需要 QEMU + Alpine 容器 | `GOOS/GOARCH` 原生支持 |
-| 数据库文件 | `instance/woktime.db`（旧版误拼） | `instance/worktime.db`（首次运行自动复制旧文件沿用） |
+| 数据库文件 | `instance/woktime.db`（旧版误拼） | `instance/worktime.db` |
 | 节假日数据 | exe 同级 `holiday/` 目录 | 内置打包 + `holiday/` 目录可选覆盖 |
 | 前端依赖 | Chart.js 走 CDN | Chart.js 打包进 exe，完全离线可用 |
 | 数据/备份/密钥 | — | `instance/`（二进制同级，`WORKTIME_DATA_DIR` 可覆盖） |
@@ -248,8 +248,8 @@ Go 的 `http.ResponseWriter` 在第一次 `WriteHeader`/`Write` 后响应头即�
 
 ### 5. 旧数据兼容
 
-- 首次运行时若 `instance/worktime.db` 不存在且同目录有旧版数据库文件（旧版误拼为 `woktime.db`），自动**复制**（不改名，不影响旧 Python 版）沿用
-- 表结构与 Python 版完全一致；启动时尝试 `ALTER TABLE time_entries ADD COLUMN content` 并忽略已存在错误
+- 表结构与 Python 版完全一致；旧数据库文件手动改名为 `instance/worktime.db` 即可沿用
+- 启动时尝试 `ALTER TABLE time_entries ADD COLUMN content` 并忽略已存在错误
 - 节假日判定规则：法定假期（isOffDay:true）和周末都算休息日，调休上班日（isOffDay:false）不算
 
 ### 6. SQLite 并发
