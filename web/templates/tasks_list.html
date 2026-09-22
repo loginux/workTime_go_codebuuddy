@@ -1,0 +1,70 @@
+{{define "title"}}任务管理 - {{.Proj.Name}}{{end}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>任务管理 <small>{{.Proj.Name}}</small></h2>
+    <a href="/tasks/create?project_id={{.Proj.ID}}" class="btn btn-primary">+ 新建任务</a>
+</div>
+
+{{if .Tasks}}
+<table class="table">
+    <thead>
+        <tr>
+            <th>任务名称</th>
+            <th>描述</th>
+            <th>默认</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Tasks}}
+        <tr>
+            <td>{{.Name}}</td>
+            <td>{{if .Description}}{{.Description}}{{else}}--{{end}}</td>
+            <td>{{if .IsDefault}}✅{{end}}</td>
+            <td class="actions">
+                <a href="/tasks/{{.ID}}/edit" class="btn-sm">编辑</a>
+                {{if not .IsDefault}}
+                <button class="btn-sm btn-danger" onclick="deleteTask({{.ID}}, '{{.Name}}')">删除</button>
+                {{else}}
+                <button class="btn-sm" disabled title="默认任务不可删除">删除</button>
+                {{end}}
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p class="empty-msg">该项目下暂无任务</p>
+{{end}}
+
+<a href="/projects" class="btn back-link">← 返回项目列表</a>
+{{end}}
+
+{{define "extra_scripts"}}
+<script>
+function deleteTask(taskId, taskName) {
+    // Step 1: 查询工时记录数
+    fetch('/tasks/' + taskId + '/delete')
+    .then(r => r.json())
+    .then(data => {
+        const msg = '确定删除任务"' + taskName + '"?';
+        const confirmMsg = data.entry_count > 0
+            ? msg + '\n该任务下共有 ' + data.entry_count + ' 条工时记录，将自动转移至本项目的默认任务。'
+            : msg;
+        if (!confirm(confirmMsg)) return;
+
+        // Step 2: 执行删除
+        return fetch('/tasks/' + taskId + '/delete', {
+            method: 'POST',
+            headers: {'X-CSRFToken': '{{.CSRF}}'}
+        });
+    })
+    .then(r => r && r.json())
+    .then(data => {
+        if (data && data.ok) location.reload();
+        else if (data) alert(data.error);
+    });
+}
+</script>
+{{end}}

@@ -1,0 +1,130 @@
+{{define "title"}}月视图 - {{.FirstDay}} ~ {{.LastDay}}{{end}}
+
+{{define "extra_head"}}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{{end}}
+
+{{define "content"}}
+<div class="view-header">
+    <div class="view-nav">
+        <a href="/views/month?date={{.PrevMonth}}" class="btn-sm">‹ 上月</a>
+        <h2>{{.FirstDay}} ~ {{.LastDay}}</h2>
+        <a href="/views/month?date={{.NextMonth}}" class="btn-sm">下月 ›</a>
+    </div>
+    <div class="view-actions" style="display:flex; gap:8px; align-items:center;">
+        <label style="font-size:13px; color:#666;">起始日期</label>
+        <input type="date" id="startDatePicker" value="{{.FirstDay}}" class="input" style="width:160px;">
+        <a href="/time_entries/create" class="btn btn-primary">+ 录入工时</a>
+    </div>
+</div>
+
+<div class="summary-card">
+    <h3>📊 {{.FirstDay}} ~ {{.LastDay}} 总计：{{fmtMin .MonthTotal}}</h3>
+</div>
+
+<div class="month-calendar">
+    <div class="calendar-header">
+        <span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span>
+    </div>
+    {{range .Weeks}}
+    <div class="calendar-row">
+        {{range .}}
+        {{if .}}
+        <a href="/views/day?date={{.DateISO}}" class="calendar-cell
+             {{if .IsToday}}today{{end}}
+             {{if eq .OffDay "yes"}}off-day{{end}}
+             {{if eq .OffDay "no"}}work-day{{end}}
+             {{.Level}}" data-minutes="{{.Minutes}}">
+            <div class="cell-day">
+                {{.Day}}
+                {{if .Holiday}}
+                <span class="cell-holiday">{{.Holiday}}{{if eq .OffDay "no"}}-调休{{end}}</span>
+                {{end}}
+            </div>
+            {{if gt .Minutes 0}}
+            <div class="cell-minutes">{{fmtMin .Minutes}}</div>
+            <div class="cell-projects">
+                {{range .Projects}}
+                <span class="cell-project-tag">{{.}}</span>
+                {{end}}
+            </div>
+            {{end}}
+        </a>
+        {{else}}
+        <div class="calendar-cell empty"></div>
+        {{end}}
+        {{end}}
+    </div>
+    {{end}}
+</div>
+<div class="color-legend">
+    <span class="legend-item"><span class="legend-swatch level-none"></span> &lt; 8.5h</span>
+    <span class="legend-item"><span class="legend-swatch level-low"></span> [8.5h, 9.5h)</span>
+    <span class="legend-item"><span class="legend-swatch level-mid"></span> [9.5h, 10.5h)</span>
+    <span class="legend-item"><span class="legend-swatch level-high"></span> [10.5h, 11.5h)</span>
+    <span class="legend-item"><span class="legend-swatch level-extreme"></span> &ge; 11.5h</span>
+</div>
+{{if .HasChart}}
+<div class="charts-row">
+    <div class="chart-container chart-half">
+        <h4 class="chart-title">按项目</h4>
+        <canvas id="monthPieProject"></canvas>
+    </div>
+    <div class="chart-container chart-half">
+        <h4 class="chart-title">按项目-任务</h4>
+        <canvas id="monthPieTask"></canvas>
+    </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "extra_scripts"}}
+<script>
+    const COLORS = [
+        '#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444',
+        '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1',
+        '#06b6d4', '#84cc16', '#e11d48', '#a855f7', '#22c55e'
+    ];
+
+    function renderPie(canvasId, labels, data) {
+        if (labels.length === 0) return;
+        new Chart(document.getElementById(canvasId), {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{ data: data, backgroundColor: COLORS.slice(0, labels.length) }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { size: 12 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                const hours = (ctx.parsed / 60).toFixed(1);
+                                return ctx.label + ': ' + hours + '小时 (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        renderPie('monthPieProject', {{.ChartProjLabel}}, {{.ChartProjData}});
+        renderPie('monthPieTask', {{.ChartTaskLabel}}, {{.ChartTaskData}});
+
+        const picker = document.getElementById('startDatePicker');
+        if (picker) {
+            picker.addEventListener('change', function () {
+                if (this.value) {
+                    window.location.href = '/views/month?date=' + this.value;
+                }
+            });
+        }
+    });
+</script>
+{{end}}

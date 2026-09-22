@@ -1,0 +1,34 @@
+{{define "title"}}选择用户 - 工时记录{{end}}
+
+{{define "content"}}
+<div class="user-select-page">
+    <h1>⏱ 工时记录</h1>
+    <p class="subtitle">选择用户进入系统</p>
+
+    <div class="user-list">
+        {{if .Users}}
+        <div class="user-grid">
+            {{range .Users}}
+            <a href="/login/{{.ID}}" class="user-card">
+                <div class="user-avatar">{{firstChar .Username}}</div>
+                <div class="user-name">{{.Username}}</div>
+            </a>
+            {{end}}
+        </div>
+        {{else}}
+        <p class="empty-msg">暂无用户，请创建一个</p>
+        {{end}}
+    </div>
+
+    <div class="create-user-section">
+        <h3>创建新用户</h3>
+        <form method="POST" action="/user_select" class="inline-form">
+            <input type="hidden" name="_csrf" value="{{.CSRF}}">
+            <div class="form-row">
+                <input type="text" name="username" class="input" placeholder="输入用户名">
+                <button type="submit" class="btn btn-primary">创建并进入</button>
+            </div>
+        </form>
+    </div>
+</div>
+{{end}}

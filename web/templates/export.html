@@ -1,0 +1,25 @@
+{{define "title"}}导出 CSV{{end}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>导出工时记录 (CSV)</h2>
+</div>
+
+<form method="POST" class="form" action="/export">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+
+    <div class="form-group">
+        <label>起始日期</label>
+        <input type="date" name="start_date" class="input" value="{{.StartDate}}">
+    </div>
+
+    <div class="form-group">
+        <label>结束日期</label>
+        <input type="date" name="end_date" class="input" value="{{.EndDate}}">
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">⬇ 导出 CSV</button>
+    </div>
+</form>
+{{end}}

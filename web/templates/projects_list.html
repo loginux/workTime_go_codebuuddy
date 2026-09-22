@@ -1,0 +1,56 @@
+{{define "title"}}项目管理{{end}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>项目管理</h2>
+    <a href="/projects/create" class="btn btn-primary">+ 新建项目</a>
+</div>
+
+{{if .Projects}}
+<table class="table">
+    <thead>
+        <tr>
+            <th>项目名称</th>
+            <th>描述</th>
+            <th>默认</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Projects}}
+        <tr>
+            <td>{{.Name}}</td>
+            <td>{{if .Description}}{{.Description}}{{else}}--{{end}}</td>
+            <td>{{if .IsDefault}}✅{{end}}</td>
+            <td class="actions">
+                <a href="/tasks?project_id={{.ID}}" class="btn-sm">任务</a>
+                <a href="/projects/{{.ID}}/edit" class="btn-sm">编辑</a>
+                {{if not .IsDefault}}
+                <button class="btn-sm btn-danger" onclick="deleteProject({{.ID}}, '{{.Name}}')">删除</button>
+                {{else}}
+                <button class="btn-sm" disabled title="默认项目不可删除">删除</button>
+                {{end}}
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p class="empty-msg">暂无项目</p>
+{{end}}
+{{end}}
+
+{{define "extra_scripts"}}
+<script>
+function deleteProject(id, name) {
+    if (!confirm(`确定删除项目"${name}"？该项目下的所有工时记录将转移至默认项目。`)) return;
+    fetch('/projects/' + id + '/delete', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{.CSRF}}'}
+    }).then(r => r.json()).then(data => {
+        if (data.ok) location.reload();
+        else alert(data.error);
+    });
+}
+</script>
+{{end}}

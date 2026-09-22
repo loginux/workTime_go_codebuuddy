@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{block "title" .}}工时记录{{end}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    {{block "extra_head" .}}{{end}}
+</head>
+<body>
+    {{if .Authed}}
+    <nav class="navbar">
+        <div class="nav-inner">
+            <div class="nav-left">
+                <a href="/views/day" class="nav-brand">⏱ 工时记录</a>
+                <div class="nav-tabs">
+                    <a href="/views/day" class="nav-tab {{if eq .Nav "day"}}active{{end}}">日视图</a>
+                    <a href="/views/week" class="nav-tab {{if eq .Nav "week"}}active{{end}}">周视图</a>
+                    <a href="/views/month" class="nav-tab {{if eq .Nav "month"}}active{{end}}">月视图</a>
+                    <a href="/projects" class="nav-tab {{if eq .Nav "projects"}}active{{end}}">项目管理</a>
+                    <a href="/export" class="nav-tab {{if eq .Nav "export"}}active{{end}}">数据下载</a>
+                </div>
+            </div>
+            <div class="nav-right">
+                <span class="nav-user">{{.Username}}</span>
+                <a href="/logout" class="nav-btn">切换用户</a>
+            </div>
+        </div>
+    </nav>
+    {{end}}
+
+    <main class="container">
+        {{if .Flashes}}
+        <div class="flash-messages">
+            {{range .Flashes}}
+            <div class="flash flash-{{.Category}}">{{.Message}}</div>
+            {{end}}
+        </div>
+        {{end}}
+
+        {{block "content" .}}{{end}}
+    </main>
+
+    <footer class="footer">
+        <span>workTime v1.2 (Go)</span>
+        <span id="renderTime">-- ms</span>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+    {{block "extra_scripts" .}}{{end}}
+    <script>
+        // 页面渲染耗时
+        window.addEventListener('load', function() {
+            var rt = document.getElementById('renderTime');
+            if (rt && performance) {
+                var ms = (performance.now() / 1).toFixed(0);
+                rt.textContent = ms + ' ms';
+            }
+        });
+    </script>
+</body>
+</html>

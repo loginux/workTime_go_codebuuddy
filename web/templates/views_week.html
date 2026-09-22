@@ -1,0 +1,138 @@
+{{define "title"}}周视图{{end}}
+
+{{define "extra_head"}}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{{end}}
+
+{{define "content"}}
+<div class="view-header">
+    <div class="view-nav">
+        <a href="/views/week?date={{.PrevWeek}}" class="btn-sm">‹ 上一周</a>
+        <h2>{{.Monday}} ~ {{.Sunday}}</h2>
+        <a href="/views/week?date={{.NextWeek}}" class="btn-sm">下一周 ›</a>
+    </div>
+    <div class="view-actions">
+        <a href="/time_entries/create" class="btn btn-primary">+ 录入工时</a>
+    </div>
+</div>
+
+<div class="summary-card">
+    <h3>📊 本周总计：{{fmtMin .WeekTotal}}</h3>
+</div>
+
+<div class="chart-container">
+    <canvas id="weekChart"></canvas>
+</div>
+
+<div class="week-grid">
+    {{range .WeekDays}}
+    <a href="/views/day?date={{.DateISO}}" class="week-day-card">
+        <div class="week-day-label">{{.MD}} {{.Label}}</div>
+        <div class="week-day-minutes">{{fmtMin .Minutes}}</div>
+        {{if .IsToday}}<div class="today-badge">今天</div>{{end}}
+    </a>
+    {{end}}
+</div>
+{{if .HasChart}}
+<div class="charts-row">
+    <div class="chart-container chart-half">
+        <h4 class="chart-title">按项目</h4>
+        <canvas id="weekPieProject"></canvas>
+    </div>
+    <div class="chart-container chart-half">
+        <h4 class="chart-title">按项目-任务</h4>
+        <canvas id="weekPieTask"></canvas>
+    </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "extra_scripts"}}
+<script>
+const COLORS = [
+    '#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444',
+    '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1',
+    '#06b6d4', '#84cc16', '#e11d48', '#a855f7', '#22c55e'
+];
+
+function renderPie(canvasId, labels, data) {
+    if (labels.length === 0) return;
+    new Chart(document.getElementById(canvasId), {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{ data: data, backgroundColor: COLORS.slice(0, labels.length) }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 12 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            const hours = (ctx.parsed / 60).toFixed(1);
+                            return ctx.label + ': ' + hours + '小时 (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+renderPie('weekPieProject', {{.ChartProjLabel}}, {{.ChartProjData}});
+renderPie('weekPieTask', {{.ChartTaskLabel}}, {{.ChartTaskData}});
+
+const ctx = document.getElementById('weekChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{.BarLabels}},
+        datasets: [{
+            label: '工时（小时）',
+            data: {{.BarData}},
+            backgroundColor: 'rgba(99, 102, 241, 0.7)',
+            borderColor: 'rgb(99, 102, 241)',
+            borderWidth: 1,
+            borderRadius: 4,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: function(ctx) {
+                        const m = ctx.parsed.y;
+                        const h = Math.floor(m / 60);
+                        const min = m % 60;
+                        return h > 0 ? h + '小时' + min + '分钟' : min + '分钟';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: { display: true, text: '小时' },
+                ticks: {
+                    callback: function(value) {
+                        return (value / 60).toFixed(1) + 'h';
+                    }
+                }
+            }
+        },
+        onClick: (e, elements) => {
+            if (elements.length > 0) {
+                const idx = elements[0].index;
+                const dates = {{.BarDates}};
+                window.location.href = '/views/day?date=' + dates[idx];
+            }
+        }
+    }
+});
+</script>
+{{end}}

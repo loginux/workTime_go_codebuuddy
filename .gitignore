@@ -1,0 +1,13 @@
+# Binaries
+workTime
+workTime.exe
+*.exe
+dist/
+
+# Runtime data
+instance/
+holiday/
+
+# IDE
+.idea/
+.vscode/

@@ -1,0 +1,145 @@
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "content"}}
+<div class="page-header">
+    <h2>{{.Title}}</h2>
+</div>
+
+<form method="POST" class="form" id="timeEntryForm" action="{{.Action}}">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+
+    <div class="form-group">
+        <label>日期</label>
+        <input type="date" name="entry_date" class="input" value="{{.EntryDate}}">
+    </div>
+
+    <div class="form-group">
+        <label>项目</label>
+        <select name="project_id" class="input" id="projectSelect">
+            {{range .Projects}}
+            <option value="{{.ID}}" {{if eq .ID $.ProjectID}}selected{{end}}>{{.Name}}</option>
+            {{end}}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>任务</label>
+        <select name="task_id" class="input" id="taskSelect"></select>
+    </div>
+
+    <div class="form-row time-row">
+        <div class="form-group time-group">
+            <label>开始时间</label>
+            <input type="time" name="start_time" class="input" id="startTime" value="{{.StartTime}}">
+        </div>
+        <div class="form-group time-group">
+            <label>结束时间</label>
+            <input type="time" name="end_time" class="input" id="endTime" value="{{.EndTime}}">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>工时（分钟）</label>
+        <div class="minutes-with-calc">
+            <input type="number" name="minutes" min="1" class="input" id="minutesInput" placeholder="自动计算或手动填写" value="{{.Minutes}}">
+            <span class="calc-hint" id="calcHint">← 自动计算</span>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>工作内容</label>
+        <textarea name="content" class="textarea" placeholder="选填" rows="2">{{.Content}}</textarea>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a href="javascript:history.back()" class="btn">取消</a>
+    </div>
+</form>
+{{end}}
+
+{{define "extra_scripts"}}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const projectSelect = document.getElementById('projectSelect');
+    const taskSelect = document.getElementById('taskSelect');
+    const selectedTask = {{.SelectedTask}};
+
+    if (projectSelect && taskSelect) {
+        projectSelect.addEventListener('change', function() {
+            const projectId = this.value;
+            if (!projectId) return;
+
+            fetch('/time_entries/tasks_for_project?project_id=' + projectId)
+                .then(r => r.json())
+                .then(tasks => {
+                    taskSelect.innerHTML = '';
+                    tasks.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.id;
+                        opt.textContent = t.name;
+                        if (selectedTask && t.id === selectedTask) opt.selected = true;
+                        taskSelect.appendChild(opt);
+                    });
+                });
+        });
+
+        if (projectSelect.value) {
+            projectSelect.dispatchEvent(new Event('change'));
+        }
+    }
+
+    // ─── 起止时间自动计算分钟数 ─────────────────────────────
+    const startTime = document.getElementById('startTime');
+    const endTime = document.getElementById('endTime');
+    const minutesInput = document.getElementById('minutesInput');
+    const calcHint = document.getElementById('calcHint');
+
+    function calcMinutes() {
+        const start = startTime.value;
+        const end = endTime.value;
+        if (!start || !end) return;
+
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        let diff = (eh * 60 + em) - (sh * 60 + sm);
+
+        if (diff > 0) {
+            // 扣除午休 12:00-13:00
+            const startMin = sh * 60 + sm, endMin = eh * 60 + em;
+            const lunchStart = 720, lunchEnd = 780;
+            if (startMin < lunchEnd && endMin > lunchStart) {
+                diff -= Math.max(0, Math.min(endMin, lunchEnd) - Math.max(startMin, lunchStart));
+            }
+            minutesInput.value = diff;
+            calcHint.textContent = '✓ 已自动计算（扣除午休12-13）';
+            calcHint.style.color = '#059669';
+        } else {
+            calcHint.textContent = '⚠ 结束时间需晚于开始时间';
+            calcHint.style.color = '#dc2626';
+        }
+    }
+
+    if (startTime && endTime) {
+        startTime.addEventListener('change', calcMinutes);
+        endTime.addEventListener('change', calcMinutes);
+        // 初始计算（仅在编辑模式下分钟数为空时触发）
+        if (!minutesInput || !minutesInput.value) {
+            setTimeout(calcMinutes, 100);
+        }
+    }
+
+    // 手动修改分钟数时清除提示
+    if (minutesInput) {
+        minutesInput.addEventListener('input', function() {
+            if (this.value) {
+                calcHint.textContent = '手动输入';
+                calcHint.style.color = '#9ca3af';
+            } else {
+                calcMinutes();
+            }
+        });
+    }
+});
+</script>
+{{end}}

@@ -1,0 +1,169 @@
+{{define "title"}}日视图 - {{.ViewDate}}{{end}}
+
+{{define "extra_head"}}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{{end}}
+
+{{define "content"}}
+<div class="view-header">
+    <div class="view-nav">
+        <a href="/views/day?date={{.PrevDate}}" class="btn-sm">‹ 前一天</a>
+        <h2>{{.ViewDate}}（周{{.WeekdayCN}}）</h2>
+        <a href="/views/day?date={{.NextDate}}" class="btn-sm">后一天 ›</a>
+    </div>
+    <div class="view-actions">
+        <a href="/time_entries/create?date={{.ViewDate}}" class="btn btn-primary">+ 录入工时</a>
+    </div>
+</div>
+
+{{if .Summary}}
+<div class="summary-card">
+    <h3>📊 当日汇总：{{fmtMin .TotalMinutes}}</h3>
+    <table class="table table-compact">
+        <thead>
+            <tr>
+                <th>项目</th>
+                <th>任务</th>
+                <th>工时</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Summary}}
+            <tr>
+                <td>{{.ProjectName}}</td>
+                <td>{{.TaskName}}</td>
+                <td>{{fmtMin .TotalMinutes}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{end}}
+
+{{if .Entries}}
+<table class="table">
+    <thead>
+        <tr>
+            <th>项目</th>
+            <th>任务</th>
+            <th>工作内容</th>
+            <th>工时</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Entries}}
+        <tr>
+            <td>{{.ProjectName}}</td>
+            <td>{{.TaskName}}</td>
+            <td class="cell-content">{{if .Content}}{{.Content}}{{else}}--{{end}}</td>
+            <td>{{fmtMin .Minutes}}（{{.Minutes}}分钟）</td>
+            <td class="actions">
+                <a href="/time_entries/{{.ID}}/edit" class="btn-sm">编辑</a>
+                <button class="btn-sm btn-danger" onclick="deleteEntry({{.ID}})">删除</button>
+            </td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{else}}
+<p class="empty-msg">该日暂无工时记录</p>
+{{end}}
+{{if .Summary}}
+<div class="charts-row">
+    <div class="chart-container chart-half">
+        <h4 class="chart-title">按项目</h4>
+        <canvas id="pieProject"></canvas>
+    </div>
+    <div class="chart-container chart-half">
+        <h4 class="chart-title">按项目-任务</h4>
+        <canvas id="pieTask"></canvas>
+    </div>
+</div>
+{{end}}
+{{end}}
+
+{{define "extra_scripts"}}
+<script>
+const COLORS = [
+    '#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444',
+    '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1',
+    '#06b6d4', '#84cc16', '#e11d48', '#a855f7', '#22c55e'
+];
+
+// ── 按项目饼图 ──────────────────────────────────────────
+const projLabels = {{.ChartProjLabel}};
+const projData  = {{.ChartProjData}};
+if (projLabels.length > 0) {
+    new Chart(document.getElementById('pieProject'), {
+        type: 'pie',
+        data: {
+            labels: projLabels,
+            datasets: [{
+                data: projData,
+                backgroundColor: COLORS.slice(0, projLabels.length),
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 12 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            const hours = (ctx.parsed / 60).toFixed(1);
+                            return ctx.label + ': ' + hours + '小时 (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── 按项目-任务饼图 ──────────────────────────────────────
+const taskLabels = {{.ChartTaskLabel}};
+const taskData   = {{.ChartTaskData}};
+if (taskLabels.length > 0) {
+    new Chart(document.getElementById('pieTask'), {
+        type: 'pie',
+        data: {
+            labels: taskLabels,
+            datasets: [{
+                data: taskData,
+                backgroundColor: COLORS.slice(0, taskLabels.length),
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 11 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            const hours = (ctx.parsed / 60).toFixed(1);
+                            return ctx.label + ': ' + hours + '小时 (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function deleteEntry(id) {
+    if (!confirm('确定删除该条工时记录？')) return;
+    fetch('/time_entries/' + id + '/delete', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{.CSRF}}'}
+    }).then(r => r.json()).then(data => {
+        if (data.ok) location.reload();
+        else alert(data.error);
+    });
+}
+</script>
+{{end}}
