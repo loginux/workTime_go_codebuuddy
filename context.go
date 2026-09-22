@@ -7,7 +7,7 @@ import (
 
 type sessionKeyType struct{}
 
-var sessionKeyCtx sessionKeyType{}
+var sessionKeyCtx sessionKeyType
 
 func withSession(ctx context.Context, s *Session) context.Context {
 	return context.WithValue(ctx, sessionKeyCtx, s)
