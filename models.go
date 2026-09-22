@@ -1,6 +1,9 @@
 package main
 
-import "database/sql"
+import (
+	"database/sql"
+	"time"
+)
 
 // ─── User ───────────────────────────────────────────────────────────────────
 
@@ -292,7 +295,25 @@ func scanEntry(scan func(dest ...any) error) *TimeEntry {
 		&e.CreatedAt, &e.Content, &e.UpdatedAt, &e.ProjectName, &e.TaskName); err != nil {
 		return nil
 	}
+	// SQLite 驱动可能对 DATE 列返回带时间部分的值（如 2026-09-21T00:00:00+08:00），
+	// 统一规整为 YYYY-MM-DD，保证按天匹配/导出解析正常
+	e.EntryDate = normalizeDate(e.EntryDate)
 	return &e
+}
+
+// normalizeDate 从任意日期表示中提取 YYYY-MM-DD
+func normalizeDate(s string) string {
+	if len(s) >= 10 {
+		if s[4] == '-' && s[7] == '-' {
+			return s[:10]
+		}
+	}
+	for _, layout := range []string{"2006-01-02", "2006-01-02 15:04:05", time.RFC3339, "2006-01-02T15:04:05"} {
+		if t, err := time.ParseInLocation(layout, s, time.Local); err == nil {
+			return t.Format("2006-01-02")
+		}
+	}
+	return s
 }
 
 func getEntriesByDate(userID int64, date string) []TimeEntry {
