@@ -61,6 +61,11 @@ func initDB(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+	// 防御：库文件不存在却残留 -wal/-shm 时，残留 WAL 会在打开时把旧数据页回放覆盖新库，先清理
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		os.Remove(path + "-wal")
+		os.Remove(path + "-shm")
+	}
 	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)", filepath.ToSlash(path))
 	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
