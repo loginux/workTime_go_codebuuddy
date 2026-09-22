@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,7 +16,10 @@ import (
 var templateFS embed.FS
 
 //go:embed web/static
-var staticFS embed.FS
+var staticFSRoot embed.FS
+
+// staticStaticFS 挂载 web/static 子目录，使 /static/css/... 直接映射到 css/...
+var staticFS, _ = fs.Sub(staticFSRoot, "web/static")
 
 var funcMap = template.FuncMap{
 	"fmtMin": formatMinutes,
