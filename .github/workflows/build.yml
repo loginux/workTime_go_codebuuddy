@@ -86,8 +86,9 @@ jobs:
           CGO_ENABLED: 0
         run: |
           go mod tidy
-          OUTPUT="workTime-${{ needs.version.outputs.version }}-${{ matrix.platform }}${{ matrix.ext }}"
-          go build -trimpath -ldflags "-s -w" -o "dist/${OUTPUT}" .
+          VERSION="${{ needs.version.outputs.version }}"
+          OUTPUT="workTime-${VERSION}-${{ matrix.platform }}${{ matrix.ext }}"
+          go build -trimpath -ldflags "-s -w -X 'worktime.AppVersion=${VERSION}'" -o "dist/${OUTPUT}" .
           echo "--- 构建完成 ---"
           ls -lh dist/
 
