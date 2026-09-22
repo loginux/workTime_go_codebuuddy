@@ -64,8 +64,10 @@ func cleanupBackups() {
 		}
 		return ai.ModTime().After(aj.ModTime())
 	})
-	for _, old := range files[maxBackups:] {
-		os.Remove(old)
+	if len(files) > maxBackups {
+		for _, old := range files[maxBackups:] {
+			os.Remove(old)
+		}
 	}
 }
 
