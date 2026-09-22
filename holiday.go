@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"log"
 	"os"
@@ -8,6 +9,9 @@ import (
 	"sync"
 	"time"
 )
+
+//go:embed holiday_data/*.json
+var embeddedHolidayFS embed.FS
 
 // 法定节假日模块：仅从外部目录加载年度节假日配置（holiday-cn 标准格式）。
 // 目录优先级：exe 同级 holiday/ → 工作目录 holiday/。
@@ -44,6 +48,22 @@ func holidayDirs() []string {
 
 func loadHolidays() {
 	result := map[string]HolidayInfo{}
+
+	// 1) 内置数据兜底（构建时打包）
+	if entries, err := embeddedHolidayFS.ReadDir("holiday_data"); err == nil {
+		for _, e := range entries {
+			if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+				continue
+			}
+			data, err := embeddedHolidayFS.ReadFile("holiday_data/" + e.Name())
+			if err != nil {
+				continue
+			}
+			applyHolidayJSON(result, data, e.Name())
+		}
+	}
+
+	// 2) 外部目录覆盖（exe 同级 holiday/ → 工作目录 holiday/）
 	for _, dir := range holidayDirs() {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -57,28 +77,35 @@ func loadHolidays() {
 			if err != nil {
 				continue
 			}
-			var hf holidayFile
-			if err := json.Unmarshal(data, &hf); err != nil {
-				log.Printf("节假日文件解析失败 %s: %v", e.Name(), err)
-				continue
-			}
-			for _, d := range hf.Days {
-				if d.Date == "" || d.Name == "" {
-					continue
-				}
-				off := true
-				if d.IsOffDay != nil {
-					off = *d.IsOffDay
-				}
-				result[d.Date] = HolidayInfo{Name: d.Name, IsOffDay: off}
-			}
+			applyHolidayJSON(result, data, e.Name())
 		}
 	}
+
 	holidayMu.Lock()
 	holidayData = result
 	holidayMu.Unlock()
 	if len(result) > 0 {
 		log.Printf("已加载节假日配置 %d 天", len(result))
+	} else {
+		log.Printf("警告: 未加载到任何节假日数据")
+	}
+}
+
+func applyHolidayJSON(result map[string]HolidayInfo, data []byte, name string) {
+	var hf holidayFile
+	if err := json.Unmarshal(data, &hf); err != nil {
+		log.Printf("节假日文件解析失败 %s: %v", name, err)
+		return
+	}
+	for _, d := range hf.Days {
+		if d.Date == "" || d.Name == "" {
+			continue
+		}
+		off := true
+		if d.IsOffDay != nil {
+			off = *d.IsOffDay
+		}
+		result[d.Date] = HolidayInfo{Name: d.Name, IsOffDay: off}
 	}
 }
 
