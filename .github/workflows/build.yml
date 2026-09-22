@@ -78,6 +78,9 @@ jobs:
             https://unpkg.com/chart.js@4/dist/chart.umd.min.js
           ls -lh web/static/js/chart.umd.min.js
 
+      - name: 写入版本号（编译时嵌入）
+        run: echo -n "${{ needs.version.outputs.version }}" > version.txt && cat version.txt
+
       - name: 构建
         env:
           GOOS: ${{ matrix.goos }}
@@ -88,7 +91,7 @@ jobs:
           go mod tidy
           VERSION="${{ needs.version.outputs.version }}"
           OUTPUT="workTime-${VERSION}-${{ matrix.platform }}${{ matrix.ext }}"
-          go build -trimpath -ldflags "-s -w -X worktime.AppVersion=${VERSION}" -o "dist/${OUTPUT}" .
+          go build -trimpath -ldflags "-s -w" -o "dist/${OUTPUT}" .
           echo "--- 构建完成 ---"
           ls -lh dist/
 
