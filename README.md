@@ -146,28 +146,28 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o workTime-linux-armv7 .
 
 ## GitHub Actions 构建
 
-项目内置了 GitHub Actions 工作流（`.github/workflows/build.yml`），自动构建以下平台，产物统一命名为 `workTime`（Windows 为 `workTime.exe`）：
+项目内置了 GitHub Actions 工作流（`.github/workflows/build.yml`），**每次推送到 main 分支自动构建**，并自动打递增版本号 tag（v0.1 → v0.2 → ...）发布到 Releases。产物统一命名为 `workTime`（Windows 为 `workTime.exe`）：
 
 | 平台 | 产物 |
 |------|------|
-| windows/amd64 | `workTime.exe` |
-| linux/amd64 | `workTime-linux-amd64` → `workTime` |
-| linux/arm64 | `workTime` |
-| linux/armv7（OpenWrt 等） | `workTime` |
-
-### 手动触发
-
-1. 在 GitHub 仓库页面点击 **Actions** → **Build workTime** → **Run workflow**
-2. 等待几分钟，在 Artifacts 中下载对应平台产物
+| windows/amd64 | `workTime-vX.Y-windows-amd64.exe` |
+| linux/amd64 | `workTime-vX.Y-linux-amd64` |
+| linux/arm64 | `workTime-vX.Y-linux-arm64` |
+| linux/armv7（OpenWrt 等） | `workTime-vX.Y-linux-armv7` |
 
 ### 自动触发
 
-推送 git tag（如 `v1.0`）时自动构建并发布到 Releases：
+推送代码到 main 分支即可：
 
 ```bash
-git tag v1.0
-git push origin v1.0
+git push
 ```
+
+构建完成后自动创建 Release（含 tag 和全部平台二进制）。
+
+### 手动触发
+
+在 GitHub 仓库页面点击 **Actions** → **Build workTime** → **Run workflow**。
 
 ### 部署到 ARM 路由器（OpenWrt）
 
