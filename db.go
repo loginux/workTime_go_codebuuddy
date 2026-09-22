@@ -62,7 +62,8 @@ func initDB(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	// 兼容旧版 Python 数据库：worktime.db 不存在而 woktime.db 存在时自动复制沿用
+	// 兼容旧版数据：worktime.db 不存在时，查找旧版误拼文件名 woktime.db 并自动复制沿用
+	// （旧版 Python 项目把 worktime 误拼为 woktime，此处按磁盘上的旧文件名字面匹配）
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		old := filepath.Join(filepath.Dir(path), "woktime.db")
 		if _, err2 := os.Stat(old); err2 == nil {
