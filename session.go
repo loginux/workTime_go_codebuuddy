@@ -54,14 +54,39 @@ type Session struct {
 	dirty bool
 }
 
+// sessionWriter 包装 ResponseWriter：在响应头首次固化（WriteHeader/Write）前注入会话 Cookie
+type sessionWriter struct {
+	http.ResponseWriter
+	s        *Session
+	injected bool
+}
+
+func (sw *sessionWriter) inject() {
+	if !sw.injected {
+		sw.injected = true
+		if sw.s.dirty {
+			sw.s.saveHeaders(sw.Header())
+		}
+	}
+}
+
+func (sw *sessionWriter) WriteHeader(code int) {
+	sw.inject()
+	sw.ResponseWriter.WriteHeader(code)
+}
+
+func (sw *sessionWriter) Write(b []byte) (int, error) {
+	sw.inject()
+	return sw.ResponseWriter.Write(b)
+}
+
 // sessionMiddleware 加载会话并在处理器修改后回写 Cookie
 func sessionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s := loadSession(r)
-		next.ServeHTTP(w, r.WithContext(withSession(r.Context(), s)))
-		if s.dirty {
-			s.save(w)
-		}
+		sw := &sessionWriter{ResponseWriter: w, s: s}
+		next.ServeHTTP(sw, r.WithContext(withSession(r.Context(), s)))
+		sw.inject() // 兜底：handler 未产生任何输出时
 	})
 }
 
@@ -96,7 +121,7 @@ func loadSession(r *http.Request) *Session {
 	return s
 }
 
-func (s *Session) save(w http.ResponseWriter) {
+func (s *Session) saveHeaders(h http.Header) {
 	raw, err := json.Marshal(s.data)
 	if err != nil {
 		return
@@ -104,7 +129,7 @@ func (s *Session) save(w http.ResponseWriter) {
 	mac := hmac.New(sha256.New, sessionKey)
 	mac.Write(raw)
 	val := base64.URLEncoding.EncodeToString(raw) + "." + hex.EncodeToString(mac.Sum(nil))
-	http.SetCookie(w, &http.Cookie{
+	h.AddSetCookie(&http.Cookie{
 		Name:     sessionCookieName,
 		Value:    val,
 		Path:     "/",
