@@ -98,7 +98,8 @@ worktime_go/
 ├── models.go                     # 数据访问层
 ├── session.go                    # 会话（Cookie 签名 + CSRF + Flash）
 ├── context.go                    # 会话/登录/CSRF 中间件
-├── holiday.go                    # 节假日加载模块
+├── holiday.go                    # 节假日加载模块（内置 + 外部覆盖）
+├── holiday_data/                 # 内置节假日 JSON（2007-2027，go:embed 打包）
 ├── backup.go                     # 数据库自动备份
 ├── mux.go                        # 路由注册
 ├── handlers_auth.go              # 用户选择/创建/切换
@@ -181,11 +182,12 @@ chmod +x /root/workTime
 
 ## 节假日配置
 
-月视图支持显示法定节假日。**仅读取外部目录**，不内置打包：
+月视图支持显示法定节假日。**数据已内置打包**（2007-2027 年，来自 [holiday-cn](https://github.com/NateScarlet/holiday-cn)），开箱即用；同时支持外部目录覆盖：
 
-- **目录位置**：`二进制同级目录/holiday/`（也兼容工作目录下的 `holiday/`）
+- **内置数据**：编译时打包在 `holiday_data/` 目录（go:embed）
+- **外部覆盖**：`二进制同级目录/holiday/`（也兼容工作目录下的 `holiday/`），外部文件优先级更高，更新节假日无需重新编译
 
-数据按年份存放，遵循 [holiday-cn](https://github.com/NateScarlet/holiday-cn) 格式：
+数据按年份存放，遵循 holiday-cn 格式：
 
 ```json
 {
@@ -211,9 +213,59 @@ chmod +x /root/workTime
 | 运行方式 | 需要 Python 环境 / PyInstaller 打包 | 单二进制，零依赖 |
 | 打包产物 | ~15MB (PyInstaller) | ~8MB (Go 静态编译) |
 | 交叉编译 | 需要 QEMU + Alpine 容器 | `GOOS/GOARCH` 原生支持 |
-| 数据库文件 | `instance/woktime.db` | `instance/worktime.db` |
-| 节假日目录 | 源码 `app/holiday/`，exe 同级 `holiday/` | 统一二进制同级 `holiday/` |
+| 数据库文件 | `instance/woktime.db` | `instance/worktime.db`（首次运行自动复制旧 `woktime.db` 沿用） |
+| 节假日数据 | exe 同级 `holiday/` 目录 | 内置打包 + `holiday/` 目录可选覆盖 |
+| 前端依赖 | Chart.js 走 CDN | Chart.js 打包进 exe，完全离线可用 |
 | 数据/备份/密钥 | — | `instance/`（二进制同级，`WORKTIME_DATA_DIR` 可覆盖） |
+
+---
+
+## 移植注意点（踩坑记录）
+
+从 Flask 移植到 Go 过程中遇到的实际问题，改动相关代码前先看这里：
+
+### 1. SQLite DATE 列会被驱动"加工"（最重要）
+
+modernc.org/sqlite 对声明为 `DATE` 类型的列，读出时可能返回带时间部分的字符串（如 `2026-09-21T00:00:00+08:00`），直接与 `"2026-09-21"` 做字符串相等比较永远不等。曾导致周/月视图按天匹配全部为 0、CSV 导出节假日列全空。
+
+**对策**：`models.go` 中 `scanEntry` 读出后统一经 `normalizeDate()` 规整为 `YYYY-MM-DD` 再参与匹配、展示、导出。任何新查询若涉及日期列，都必须走这个规整。
+
+### 2. 响应头固化后 Set-Cookie 会静默丢失
+
+Go 的 `http.ResponseWriter` 在第一次 `WriteHeader`/`Write` 后响应头即固化，之后再调用 `Set-Cookie` 无效且不报错。中间件若在 handler 返回后才写会话 Cookie，登录态、Flash 消息会全部静默丢失（Flask 没有这个问题，因为它在响应结束才统一序列化 header）。
+
+**对策**：`session.go` 用 `sessionWriter` 包装 ResponseWriter，在首次写入前注入 Cookie。新增 handler 时注意：不要在写出响应之后再改会话状态。
+
+### 3. go:embed 路径带目录前缀
+
+`//go:embed web/static` 嵌入后，FS 内路径是 `web/static/css/style.css`。路由剥掉 `/static/` 前缀后按 `css/style.css` 查找会 404。
+
+**对策**：`render.go` 用 `fs.Sub(staticFSRoot, "web/static")` 挂载子目录。同理模板解析用完整路径 `web/templates/xxx.html`。
+
+### 4. 前端资源不依赖 CDN
+
+用户网络环境可能无法访问 jsdelivr。Chart.js 在 **CI 构建时下载**（jsdelivr 失败自动切 unpkg）覆盖 `web/static/js/chart.umd.min.js` 占位文件后打进 exe。本地开发若需要图表，手动下载该文件覆盖占位文件即可（占位文件是合法 JS，不影响编译和其他功能）。
+
+### 5. 旧数据兼容
+
+- 首次运行时若 `instance/worktime.db` 不存在且同目录有旧版 `woktime.db`，自动**复制**（不改名，不影响旧 Python 版）沿用
+- 表结构与 Python 版完全一致；启动时尝试 `ALTER TABLE time_entries ADD COLUMN content` 并忽略已存在错误
+- 节假日判定规则：法定假期（isOffDay:true）和周末都算休息日，调休上班日（isOffDay:false）不算
+
+### 6. SQLite 并发
+
+modernc 驱动无 CGO，单写者模型。连接池限制 `SetMaxOpenConns(1)` 避免并发写锁冲突（本地单用户工具足够）。
+
+### 7. Windows 细节
+
+- SQLite DSN 中的路径用 `filepath.ToSlash()` 转正斜杠，避免反斜杠转义问题
+- 中文字符串切分（如星期名）必须用 `[]rune`，直接按字节切片会得到 UTF-8 碎片
+
+### 8. CI 兼容性
+
+- go.sum 不入库（沙箱无法联网生成），CI 构建前执行 `go mod tidy`
+- 避免使用过新的标准库 API（如 `http.Header.AddSetCookie` 需 Go 1.20+，CI 环境可能没有），用 `Cookie.String()` + `Header.Add` 替代
+- 备份清理等切片操作先判断长度再切，避免 `files[maxBackups:]` 越界 panic
 
 ---
 
