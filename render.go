@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,8 @@ var funcMap = template.FuncMap{
 		}
 		return strings.ToUpper(string([]rune(s)[0]))
 	},
+	"appVersion": func() string { return AppVersion },
+	"goVersion":  func() string { return strings.TrimPrefix(runtime.Version(), "go") },
 }
 
 // formatMinutes 将分钟数格式化为 X小时X分钟

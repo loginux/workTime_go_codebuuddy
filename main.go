@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
 func main() {
@@ -36,7 +37,7 @@ func main() {
 	go startWeeklyBackup()
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)
-	log.Printf("workTime 启动: http://%s", addr)
+	log.Printf("workTime v%s (Go %s) 启动: http://%s", AppVersion, runtime.Version(), addr)
 
 	mux := buildMux()
 	if err := http.ListenAndServe(addr, mux); err != nil {

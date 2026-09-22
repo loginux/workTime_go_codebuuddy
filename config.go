@@ -6,6 +6,9 @@ import (
 	"strings"
 )
 
+// AppVersion 应用版本号（发布 Release 时与 git tag v{AppVersion} 对应）
+const AppVersion = "1.0"
+
 // getDataDir 返回数据存储目录（数据库、备份、会话密钥）。
 // 默认放在 exe 同级目录（单文件分发模式）；可用环境变量 WORKTIME_DATA_DIR 覆盖。
 func getDataDir() string {

@@ -27,12 +27,16 @@ jobs:
         run: |
           LAST=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
           if [ -z "$LAST" ]; then
-            NEXT="v0.1"
+            NEXT="v1.0"
           else
             VER="${LAST#v}"
             MAJOR="${VER%%.*}"
             MINOR="${VER#*.}"
-            NEXT="v${MAJOR}.$((MINOR + 1))"
+            if [ "$MAJOR" = "0" ]; then
+              NEXT="v1.0"
+            else
+              NEXT="v${MAJOR}.$((MINOR + 1))"
+            fi
           fi
           echo "version=$NEXT" >> "$GITHUB_OUTPUT"
           echo "上一个版本: ${LAST:-无}，本次版本: $NEXT"
