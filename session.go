@@ -129,14 +129,14 @@ func (s *Session) saveHeaders(h http.Header) {
 	mac := hmac.New(sha256.New, sessionKey)
 	mac.Write(raw)
 	val := base64.URLEncoding.EncodeToString(raw) + "." + hex.EncodeToString(mac.Sum(nil))
-	h.AddSetCookie(&http.Cookie{
+	h.Add("Set-Cookie", (&http.Cookie{
 		Name:     sessionCookieName,
 		Value:    val,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   sessionMaxAge,
-	})
+	}).String())
 }
 
 func (s *Session) UserID() int64 { return s.data.UID }
