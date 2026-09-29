@@ -142,12 +142,11 @@ func handleProjectDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 转移工时记录到默认项目的默认任务
-	transferEntriesToDefault(id, defaultProj.ID, defaultTask.ID)
-	// 软删除项目下所有任务
-	softDeleteTasksByProject(id)
-	// 软删除项目
-	softDeleteProject(id)
+	// 转移工时记录到默认项目的默认任务，并软删任务与项目（单事务）
+	if err := deleteProjectCascade(uid, id, defaultProj.ID, defaultTask.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "删除项目失败: " + err.Error()})
+		return
+	}
 
 	s.Flash("success", "项目已删除，工时记录已转移")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -296,7 +295,7 @@ func handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entryCount := countEntriesByTask(id)
+	entryCount := countEntriesByTask(uid, id)
 	if r.Method == http.MethodGet {
 		writeJSON(w, http.StatusOK, map[string]any{"entry_count": entryCount})
 		return
@@ -305,6 +304,7 @@ func handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var defaultTaskID int64
 	if entryCount > 0 {
 		// 转移到同项目默认任务
 		defaultTask := getDefaultTask(task.ProjectID)
@@ -313,10 +313,13 @@ func handleTaskDelete(w http.ResponseWriter, r *http.Request) {
 			defaultTask = getDefaultTaskGlobal(uid)
 		}
 		if defaultTask != nil {
-			transferEntriesToTask(id, defaultTask.ID)
+			defaultTaskID = defaultTask.ID
 		}
 	}
-	softDeleteTask(id)
+	if err := deleteTaskCascade(uid, id, defaultTaskID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]any{"error": "删除任务失败: " + err.Error()})
+		return
+	}
 
 	s.Flash("success", "任务已删除")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "entry_count": entryCount})

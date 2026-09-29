@@ -80,7 +80,12 @@ func main() {
 	log.Printf("workTime v%s (Go %s) 启动: http://%s", AppVersion, runtime.Version(), addr)
 
 	mux := buildMux()
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("服务启动失败: %v", err)
 	}
 }

@@ -79,6 +79,8 @@ func initDB(path string) error {
 	}
 	// 兼容旧数据库：新增 content 字段（已存在则忽略错误）
 	conn.Exec("ALTER TABLE time_entries ADD COLUMN content TEXT DEFAULT ''")
+	// 高频查询路径索引：按用户 + 日期查询/聚合工时
+	conn.Exec("CREATE INDEX IF NOT EXISTS idx_time_entries_user_date ON time_entries(user_id, entry_date)")
 	db = conn
 	log.Printf("数据库已就绪: %s", path)
 	return nil

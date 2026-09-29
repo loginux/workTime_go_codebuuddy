@@ -21,6 +21,11 @@ const maxBackups = 9
 
 func doBackup() (string, error) {
 	src := dbPath()
+	// WAL 模式下提交先写 -wal，裸拷主文件会丢失未 checkpoint 的提交；
+	// 先执行 TRUNCATE checkpoint 把已提交数据落回主文件，再复制。
+	if _, err := db.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		log.Printf("备份前 checkpoint 失败: %v", err)
+	}
 	f, err := os.Open(src)
 	if err != nil {
 		if os.IsNotExist(err) {

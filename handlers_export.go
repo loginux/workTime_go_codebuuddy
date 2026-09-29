@@ -9,6 +9,19 @@ import (
 	"time"
 )
 
+// csvSafe 防止 CSV 公式注入：以 = + - @ 等开头的单元格前置单引号，
+// 避免 Excel/WPS 打开时把内容当作公式执行。
+func csvSafe(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
 // GET/POST /export
 // 自定义日期范围导出 CSV（含 BOM 头，兼容 Excel 中文）
 func handleExport(w http.ResponseWriter, r *http.Request) {
@@ -49,9 +62,9 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 			}
 			cw.Write([]string{
 				e.EntryDate,
-				e.ProjectName,
-				e.TaskName,
-				e.Content,
+				csvSafe(e.ProjectName),
+				csvSafe(e.TaskName),
+				csvSafe(e.Content),
 				strconv.Itoa(e.Minutes),
 				holidayOT,
 				strconv.FormatInt(e.ID, 10),

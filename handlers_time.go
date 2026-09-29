@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// maxFutureEntryDays 允许预先填写未来工时记录的最大天数
+const maxFutureEntryDays = 15
+
 // parseHHMM 解析 HH:MM 格式字符串，返回分钟数（0:00 起算），失败返回 -1
 func parseHHMM(s string) int {
 	parts := strings.SplitN(strings.TrimSpace(s), ":", 2)
@@ -116,8 +119,8 @@ func handleEntryCreate(w http.ResponseWriter, r *http.Request) {
 			render(w, "time_entries_form.html", page)
 			return
 		}
-		if entryDate.After(time.Now()) {
-			s.Flash("error", "日期不可晚于今天")
+		if entryDate.After(time.Now().AddDate(0, 0, maxFutureEntryDays)) {
+			s.Flash("error", "日期不可晚于15天之后")
 			render(w, "time_entries_form.html", page)
 			return
 		}
@@ -138,6 +141,12 @@ func handleEntryCreate(w http.ResponseWriter, r *http.Request) {
 		proj := getProjectByID(page.ProjectID)
 		if proj == nil || proj.UserID != uid {
 			s.Flash("error", "项目不存在")
+			render(w, "time_entries_form.html", page)
+			return
+		}
+		task := getTaskByID(taskID)
+		if task == nil || task.ProjectID != page.ProjectID {
+			s.Flash("error", "任务不存在或不属于所选项目")
 			render(w, "time_entries_form.html", page)
 			return
 		}
@@ -199,8 +208,8 @@ func handleEntryEdit(w http.ResponseWriter, r *http.Request) {
 			render(w, "time_entries_form.html", page)
 			return
 		}
-		if entryDate.After(time.Now()) {
-			s.Flash("error", "日期不可晚于今天")
+		if entryDate.After(time.Now().AddDate(0, 0, maxFutureEntryDays)) {
+			s.Flash("error", "日期不可晚于15天之后")
 			render(w, "time_entries_form.html", page)
 			return
 		}
@@ -219,6 +228,12 @@ func handleEntryEdit(w http.ResponseWriter, r *http.Request) {
 		proj := getProjectByID(page.ProjectID)
 		if proj == nil || proj.UserID != uid {
 			s.Flash("error", "项目不存在")
+			render(w, "time_entries_form.html", page)
+			return
+		}
+		task := getTaskByID(taskID)
+		if task == nil || task.ProjectID != page.ProjectID {
+			s.Flash("error", "任务不存在或不属于所选项目")
 			render(w, "time_entries_form.html", page)
 			return
 		}

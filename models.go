@@ -170,14 +170,27 @@ func updateProject(id int64, name, description string) error {
 	return err
 }
 
-func softDeleteProject(id int64) error {
-	_, err := db.Exec("UPDATE projects SET is_deleted = 1 WHERE id = ?", id)
-	return err
-}
-
-func softDeleteTasksByProject(projectID int64) error {
-	_, err := db.Exec("UPDATE tasks SET is_deleted = 1 WHERE project_id = ?", projectID)
-	return err
+// deleteProjectCascade 删除项目：转移工时到默认项目/任务，并软删任务与项目（单事务）。
+// 所有写操作均按 user_id 过滤，避免跨用户误转移/误删。
+func deleteProjectCascade(userID, projectID, defaultProjectID, defaultTaskID int64) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(
+		`UPDATE time_entries SET project_id = ?, task_id = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ? AND user_id = ?`,
+		defaultProjectID, defaultTaskID, projectID, userID,
+	); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE tasks SET is_deleted = 1 WHERE project_id = ?`, projectID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`UPDATE projects SET is_deleted = 1 WHERE id = ?`, projectID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // ─── Task ───────────────────────────────────────────────────────────────────
@@ -261,9 +274,26 @@ func updateTask(id int64, name, description string) error {
 	return err
 }
 
-func softDeleteTask(id int64) error {
-	_, err := db.Exec("UPDATE tasks SET is_deleted = 1 WHERE id = ?", id)
-	return err
+// deleteTaskCascade 删除任务：若指定了兜底任务则转移工时，并软删任务（单事务）。
+// 工时转移按 user_id 过滤，避免跨用户误转移。
+func deleteTaskCascade(userID, taskID, defaultTaskID int64) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if defaultTaskID != 0 {
+		if _, err := tx.Exec(
+			`UPDATE time_entries SET task_id = ?, updated_at = CURRENT_TIMESTAMP WHERE task_id = ? AND user_id = ?`,
+			defaultTaskID, taskID, userID,
+		); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.Exec(`UPDATE tasks SET is_deleted = 1 WHERE id = ?`, taskID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // ─── Time Entry ─────────────────────────────────────────────────────────────
@@ -378,29 +408,13 @@ func deleteTimeEntry(id int64) error {
 	return err
 }
 
-func countEntriesByTask(taskID int64) int {
+func countEntriesByTask(userID, taskID int64) int {
 	var cnt int
-	row := db.QueryRow("SELECT COUNT(*) FROM time_entries WHERE task_id = ?", taskID)
+	row := db.QueryRow("SELECT COUNT(*) FROM time_entries WHERE user_id = ? AND task_id = ?", userID, taskID)
 	if err := row.Scan(&cnt); err != nil {
 		return 0
 	}
 	return cnt
-}
-
-func transferEntriesToTask(fromTaskID, toTaskID int64) error {
-	_, err := db.Exec(
-		"UPDATE time_entries SET task_id = ?, updated_at = CURRENT_TIMESTAMP WHERE task_id = ?",
-		toTaskID, fromTaskID,
-	)
-	return err
-}
-
-func transferEntriesToDefault(projectID, defaultProjectID, defaultTaskID int64) error {
-	_, err := db.Exec(
-		`UPDATE time_entries SET project_id = ?, task_id = ?, updated_at = CURRENT_TIMESTAMP WHERE project_id = ?`,
-		defaultProjectID, defaultTaskID, projectID,
-	)
-	return err
 }
 
 // ─── 汇总 ───────────────────────────────────────────────────────────────────
