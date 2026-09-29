@@ -85,6 +85,9 @@
 
 {{define "extra_scripts"}}
 <script>
+// 本地开发未下载 Chart.js 时优雅降级（不渲染图表、不报错）
+if (typeof Chart === 'undefined') { var Chart = function() {}; }
+
 const COLORS = [
     '#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444',
     '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1',

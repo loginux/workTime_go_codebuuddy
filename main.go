@@ -70,6 +70,10 @@ func main() {
 
 	loadHolidays()
 
+	if err := initTemplates(); err != nil {
+		log.Fatalf("初始化模板失败: %v", err)
+	}
+
 	// 启动时备份数据库
 	if p, err := doBackup(); err == nil && p != "" {
 		log.Printf("数据库已备份: %s", p)

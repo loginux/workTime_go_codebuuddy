@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/url"
 )
 
 type sessionKeyType struct{}
@@ -42,7 +43,12 @@ func requireCSRF(w http.ResponseWriter, r *http.Request) bool {
 		} else {
 			s.Flash("error", "CSRF 校验失败，请刷新页面重试")
 			back := r.Header.Get("Referer")
-			if back == "" {
+			if back != "" {
+				// 仅允许重定向回同源地址，防止 Referer 被构造导致开放重定向
+				if u, err := url.Parse(back); err != nil || (u.Host != "" && u.Host != r.Host) {
+					back = "/"
+				}
+			} else {
 				back = "/"
 			}
 			http.Redirect(w, r, back, http.StatusFound)

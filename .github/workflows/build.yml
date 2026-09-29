@@ -41,8 +41,26 @@ jobs:
           echo "version=$NEXT" >> "$GITHUB_OUTPUT"
           echo "上一个版本: ${LAST:-无}，本次版本: $NEXT"
 
+  # 静态检查 + 测试（原生 linux 单次运行，避免矩阵重复）
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: 静态检查与测试
+        run: |
+          go mod tidy
+          go vet ./...
+          go test ./...
+
   build:
-    needs: version
+    needs: [version, check]
     runs-on: ubuntu-latest
     strategy:
       matrix:

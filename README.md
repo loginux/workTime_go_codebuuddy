@@ -46,7 +46,7 @@
 | 后端框架 | **Go 标准库 net/http**（Go 1.22+，无第三方 Web 框架） |
 | 模板引擎 | **html/template**（编译期嵌入，go:embed） |
 | 数据库 | **SQLite**（modernc.org/sqlite，纯 Go 实现，无 CGO） |
-| 前端图表 | **Chart.js**（柱状图 + 饼图，CDN 引入） |
+| 前端图表 | **Chart.js**（柱状图 + 饼图，CI 构建时下载并打包进 exe，离线可用） |
 | 会话 | HMAC 签名 Cookie（uid + CSRF + flash 消息） |
 | CSS | 纯手写，无框架依赖 |
 

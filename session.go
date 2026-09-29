@@ -18,6 +18,7 @@ import (
 
 const sessionCookieName = "worktime_session"
 const sessionMaxAge = 30 * 24 * 3600 // 30 天
+const maxFlashes = 10                // 会话 Cookie 中最多保留的 flash 条数，防止溢出
 
 var sessionKey []byte
 
@@ -59,13 +60,14 @@ type sessionWriter struct {
 	http.ResponseWriter
 	s        *Session
 	injected bool
+	secure   bool // 请求是否走 TLS，决定 Cookie 是否带 Secure 标志
 }
 
 func (sw *sessionWriter) inject() {
 	if !sw.injected {
 		sw.injected = true
 		if sw.s.dirty {
-			sw.s.saveHeaders(sw.Header())
+			sw.s.saveHeaders(sw.Header(), sw.secure)
 		}
 	}
 }
@@ -84,7 +86,7 @@ func (sw *sessionWriter) Write(b []byte) (int, error) {
 func sessionMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s := loadSession(r)
-		sw := &sessionWriter{ResponseWriter: w, s: s}
+		sw := &sessionWriter{ResponseWriter: w, s: s, secure: r.TLS != nil}
 		next.ServeHTTP(sw, r.WithContext(withSession(r.Context(), s)))
 		sw.inject() // 兜底：handler 未产生任何输出时
 	})
@@ -121,7 +123,7 @@ func loadSession(r *http.Request) *Session {
 	return s
 }
 
-func (s *Session) saveHeaders(h http.Header) {
+func (s *Session) saveHeaders(h http.Header, secure bool) {
 	raw, err := json.Marshal(s.data)
 	if err != nil {
 		return
@@ -134,6 +136,7 @@ func (s *Session) saveHeaders(h http.Header) {
 		Value:    val,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   sessionMaxAge,
 	}).String())
@@ -180,6 +183,11 @@ func (s *Session) CheckCSRF(r *http.Request) bool {
 
 func (s *Session) Flash(category, message string) {
 	s.data.Flashs = append(s.data.Flashs, Flash{category, message})
+	// 上限保护：AJAX 等不整页渲染的场景下 flash 会累积进 Cookie，
+	// 超出上限丢弃最旧的，避免 Cookie 超限被浏览器静默丢弃而连带丢登录态。
+	if len(s.data.Flashs) > maxFlashes {
+		s.data.Flashs = s.data.Flashs[len(s.data.Flashs)-maxFlashes:]
+	}
 	s.dirty = true
 }
 

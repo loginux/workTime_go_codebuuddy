@@ -83,6 +83,28 @@ var (
 	templateCache   = map[string]*template.Template{}
 )
 
+// initTemplates 启动期预解析全部页面模板（base.html + 各页面），模板有误时 fail-fast，
+// 避免首个请求才解析并 panic 打挂进程。
+func initTemplates() error {
+	entries, err := fs.ReadDir(templateFS, "web/templates")
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".html") || e.Name() == "base.html" {
+			continue
+		}
+		t, err := template.New("base.html").Funcs(funcMap).ParseFS(
+			templateFS, "web/templates/base.html", "web/templates/"+e.Name(),
+		)
+		if err != nil {
+			return fmt.Errorf("解析模板 %s 失败: %w", e.Name(), err)
+		}
+		templateCache[e.Name()] = t
+	}
+	return nil
+}
+
 // render 渲染页面（base.html + 指定页面模板，带并发保护的缓存）
 func render(w http.ResponseWriter, page string, data any) {
 	t := func() *template.Template {
