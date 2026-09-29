@@ -86,9 +86,11 @@ func handleExport(w http.ResponseWriter, r *http.Request) {
 		StartDate string
 		EndDate   string
 	}
+	// 默认范围：当前月 1 日 ~ 今天
+	now := time.Now()
 	render(w, "export.html", Page{
 		Base:      baseData(r, "export"),
-		StartDate: "2020-01-01",
+		StartDate: time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02"),
 		EndDate:   todayStr(),
 	})
 }

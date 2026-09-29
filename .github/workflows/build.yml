@@ -25,21 +25,31 @@ jobs:
       - name: 计算版本号
         id: calc
         run: |
-          LAST=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
-          if [ -z "$LAST" ]; then
-            NEXT="v1.0"
+          # 仓库 version.txt 写入显式版本（非 dev）时直接采用；否则取最新 v* tag minor+1
+          EXPLICIT="$(cat version.txt 2>/dev/null | tr -d '[:space:]')"
+          if [ -n "$EXPLICIT" ] && [ "$EXPLICIT" != "dev" ]; then
+            case "$EXPLICIT" in
+              v*) NEXT="$EXPLICIT" ;;
+              *)  NEXT="v$EXPLICIT" ;;
+            esac
+            echo "采用 version.txt 指定版本: $NEXT"
           else
-            VER="${LAST#v}"
-            MAJOR="${VER%%.*}"
-            MINOR="${VER#*.}"
-            if [ "$MAJOR" = "0" ]; then
+            LAST=$(git tag -l 'v*' --sort=-v:refname | head -n 1)
+            if [ -z "$LAST" ]; then
               NEXT="v1.0"
             else
-              NEXT="v${MAJOR}.$((MINOR + 1))"
+              VER="${LAST#v}"
+              MAJOR="${VER%%.*}"
+              MINOR="${VER#*.}"
+              if [ "$MAJOR" = "0" ]; then
+                NEXT="v1.0"
+              else
+                NEXT="v${MAJOR}.$((MINOR + 1))"
+              fi
             fi
+            echo "自动递增: 上一个版本 ${LAST:-无}，本次版本 $NEXT"
           fi
           echo "version=$NEXT" >> "$GITHUB_OUTPUT"
-          echo "上一个版本: ${LAST:-无}，本次版本: $NEXT"
 
   # 静态检查 + 测试（原生 linux 单次运行，避免矩阵重复）
   check:
